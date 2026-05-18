@@ -104,6 +104,7 @@ class FaceViewSet(ViewSet):
                 }, status=status.HTTP_200_OK)
             else:
                 face_user.delete()
+                os.remove(face_user.photo.path)
                 return Response({
                     'ok': False,
                     'message': 'Faces do not match. The photo does not match the ID card.'
