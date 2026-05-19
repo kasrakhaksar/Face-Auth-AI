@@ -1,5 +1,6 @@
 from rest_framework.serializers import Serializer, CharField, FileField, ListField, ValidationError
 from django.contrib.auth.models import User
+from django.core.files.base import ContentFile
 from .models import Video
 import os
 import uuid
@@ -7,10 +8,8 @@ import uuid
 class VideoSerializer(Serializer):
     username = CharField(max_length=150)
     video = FileField()
-    randomCheck = ListField(
-        child=CharField(),
-        help_text="List of Persian words to check"
-    )
+    randomCheck = CharField(max_length=150)
+
 
     def validate_video(self, value):
         valid_extensions = ['.mp4', '.mov', '.avi', '.mkv']
@@ -25,15 +24,15 @@ class VideoSerializer(Serializer):
         return value
 
     def validate_randomCheck(self, value):
-        if not isinstance(value, list):
-            raise ValidationError("randomCheck must be a list")
+        if not isinstance(value, str):
+            raise ValidationError("randomCheck must be a string")
         
         if len(value) == 0:
             raise ValidationError("randomCheck cannot be empty")
         
-        cleaned_words = [word.strip().lower() for word in value]
-        return cleaned_words
-
+        randomCheck = value.split()
+        return randomCheck
+        
     def validate_username(self, value):
         try:
             user = User.objects.get(username=value)
@@ -50,17 +49,15 @@ class VideoSerializer(Serializer):
         video_file = validated_data['video']
         
         file_name = f"video_{user.username}_{uuid.uuid4().hex[:10]}.mp4"
- 
+        
+        video_file_content = video_file.read()
+        
+        new_video_file = ContentFile(video_file_content)
+        new_video_file.name = file_name
+        
         video = Video.objects.create(
             user=user, 
-            video=video_file,  
-
+            video_field=new_video_file
         )
-        
-        if hasattr(video.video, 'name'):
-            old_name = video.video.name
-            new_name = f"videos/{file_name}"
-            video.video.name = new_name
-            video.save()
         
         return video

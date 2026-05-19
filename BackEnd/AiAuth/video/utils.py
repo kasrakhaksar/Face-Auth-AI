@@ -36,8 +36,6 @@ def extract_audio_from_video(video_file_path, username):
     
     ffmpeg_command = ['ffmpeg', '-i', video_file_path, '-vn', audio_output_path]
     subprocess.run(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    
     video_capture = cv2.VideoCapture(audio_output_path)
     video_capture.release()
-    
     return audio_output_path

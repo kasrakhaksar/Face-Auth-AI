@@ -83,29 +83,27 @@ class VideoViewSet(ViewSet):
         
         try:
             video_user = serializer.save()
-            video_path = video_user.video.path
+            video_path = video_user.video_field.path
             
             audio_path = extract_audio_from_video(video_path, username)
             
             if not audio_path or not os.path.exists(audio_path):
                 video_user.delete()
+                os.remove(video_user.video_field.path)
+
                 return Response({
                     'ok': False,
                     'message': 'Failed to extract audio from video'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
 
-
             speechrecognizer = SpeechRecognizer(language='en')
             recognized_text = speechrecognizer.recognize_speech(audio_path)
-            
-            try:
-                os.remove(audio_path)
-            except:
-                pass
+
             
             if not recognized_text:
                 video_user.delete()
+                os.remove(video_user.video_field.path)
                 return Response({
                     'ok': False,
                     'message': 'No speech recognized in video'
@@ -115,9 +113,11 @@ class VideoViewSet(ViewSet):
 
             recognized_text_words = re.findall(r'[\u0600-\u06FF0-9]+', recognized_text)
             
-            random_words_check_sorted = sorted([word.strip().lower() for word in random_words_check])
-            recognized_text_words_sorted = sorted([word.strip().lower() for word in recognized_text_words])
-            
+            random_words_check_sorted = sorted(random_words_check)
+            recognized_text_words_sorted = sorted(recognized_text_words)
+
+
+
             if random_words_check_sorted == recognized_text_words_sorted:
                 user_status.user_video_status = True
                 user_status.save()
@@ -126,13 +126,11 @@ class VideoViewSet(ViewSet):
                     'ok': True,
                     'username': user.username,
                     'message': 'Video verification completed successfully. All steps finished!',
-                    'details': {
-                        'expected_words': random_words_check_sorted,
-                        'detected_words': recognized_text_words_sorted
-                    }
                 }, status=status.HTTP_200_OK)
             else:
                 video_user.delete()
+                os.remove(video_user.video_field.path)
+
                 
                 missing_words = list(set(random_words_check_sorted) - set(recognized_text_words_sorted))
                 extra_words = list(set(recognized_text_words_sorted) - set(random_words_check_sorted))
@@ -152,8 +150,15 @@ class VideoViewSet(ViewSet):
             if video_user:
                 try:
                     video_user.delete()
+                    os.remove(video_user.video_field.path)
                 except:
                     pass
+
+            try:
+                os.remove(audio_path)
+            except:
+                pass
+
             
             return Response({
                 'ok': False,
