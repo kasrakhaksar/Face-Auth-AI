@@ -9,7 +9,6 @@ from .models import Face
 from id_card.models import IDCard
 from user_status.models import UserStatus
 from django.contrib.auth.models import User
-import os
 
 
 
@@ -65,8 +64,19 @@ class FaceViewSet(ViewSet):
         try:
 
             facecropper = FaceDetector()
-            facecropper.crop_and_save_face(face_user.photo.path)
+            facecropper_status = facecropper.crop_and_save_face(face_user.photo.path)
             
+
+            if facecropper_status == False:
+   
+                face_user.delete()
+
+                return Response({
+                    'ok': False,
+                    'message': f'No face found'
+                }, status=400)
+
+
             encoded = {}
             
             
@@ -104,7 +114,6 @@ class FaceViewSet(ViewSet):
                 }, status=status.HTTP_200_OK)
             else:
                 face_user.delete()
-                os.remove(face_user.photo.path)
                 return Response({
                     'ok': False,
                     'message': 'Faces do not match. The photo does not match the ID card.'
@@ -114,10 +123,6 @@ class FaceViewSet(ViewSet):
 
             if face_user and face_user.pk:
                 face_user.delete()
-                try:
-                    os.remove(face_user.photo.path)
-                except:
-                    pass
 
 
             return Response({

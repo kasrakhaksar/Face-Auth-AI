@@ -6,9 +6,9 @@ from user_status.models import UserStatus
 from .serializers import VideoSerializer
 from .models import Video
 from django.contrib.auth.models import User
+from .utils import SpeechRecognizer, extract_audio_from_video
 import os
 import re
-from .utils import SpeechRecognizer, extract_audio_from_video
 
 
 class VideoViewSet(ViewSet):
@@ -89,7 +89,6 @@ class VideoViewSet(ViewSet):
             
             if not audio_path or not os.path.exists(audio_path):
                 video_user.delete()
-                os.remove(video_user.video_field.path)
 
                 return Response({
                     'ok': False,
@@ -103,7 +102,6 @@ class VideoViewSet(ViewSet):
             
             if not recognized_text:
                 video_user.delete()
-                os.remove(video_user.video_field.path)
                 return Response({
                     'ok': False,
                     'message': 'No speech recognized in video'
@@ -129,7 +127,6 @@ class VideoViewSet(ViewSet):
                 }, status=status.HTTP_200_OK)
             else:
                 video_user.delete()
-                os.remove(video_user.video_field.path)
 
                 
                 missing_words = list(set(random_words_check_sorted) - set(recognized_text_words_sorted))
@@ -150,7 +147,6 @@ class VideoViewSet(ViewSet):
             if video_user:
                 try:
                     video_user.delete()
-                    os.remove(video_user.video_field.path)
                 except:
                     pass
 

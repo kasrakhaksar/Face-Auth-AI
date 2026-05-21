@@ -1,12 +1,10 @@
 from rest_framework.viewsets import ViewSet
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
-
 from user_status.models import UserStatus
 from .utils import FaceDetector
 from .serializers import IDCardSerializer
 from django.contrib.auth.models import User
-import os
 
 
 
@@ -32,7 +30,7 @@ class IDCardViewSet(ViewSet):
                 'message': f'User "{username}" not found'
             }, status=404)
         
-        user_status, created = UserStatus.objects.get_or_create(user=user)
+        user_status , user_create = UserStatus.objects.get_or_create(user=user)
         
         if user_status.user_idcard_status:
             return Response({
@@ -45,25 +43,32 @@ class IDCardViewSet(ViewSet):
         try:
 
             facecropper = FaceDetector()
-            facecropper.crop_and_save_face(id_card.photo.path)
+            facecropper_status = facecropper.crop_and_save_face(id_card.photo.path)
             
-            user_status.user_idcard_status = True
-            user_status.save()
+
+            if facecropper_status == True:
+                user_status.user_idcard_status = True
+                user_status.save()
+            else:
+
+                id_card.delete()
+
+                return Response({
+                    'ok': False,
+                    'message': f'No face found'
+                }, status=400)
+        
             
             return Response({
                 'ok': True,
                 'username': id_card.user.username,
                 'message': 'Face detected and ID card processed successfully'
-            })
+            } , status=200)
         
+
+
         except Exception as e:
             id_card.delete()
-
-            try:
-                os.remove(id_card.photo.path)
-            except:
-                pass
-
 
             return Response({
                 'ok': False,
