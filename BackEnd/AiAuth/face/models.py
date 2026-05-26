@@ -2,11 +2,25 @@ from django.db.models import Model, AutoField, ForeignKey, CASCADE, DateTimeFiel
 from django.contrib.auth.models import User
 from django.db.models import Index
 import os
+import uuid
+
+def user_face_path(instance, filename):
+
+    username = instance.user.username
+    
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in ['.jpg', '.jpeg', '.png']:
+        ext = '.png'
+    
+    new_filename = f"face_{uuid.uuid4().hex[:10]}{ext}"
+    
+    return os.path.join(username, new_filename)
+
 
 class Face(Model):
     id = AutoField(primary_key=True)
     user = ForeignKey(User, on_delete=CASCADE, unique=True)
-    photo = ImageField(upload_to='faces')
+    photo = ImageField(upload_to=user_face_path)
     created_at = DateTimeField(auto_now_add=True)
     updated_at = DateTimeField(auto_now=True)
 

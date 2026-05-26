@@ -2,13 +2,17 @@ from rest_framework.viewsets import ViewSet
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import status
-from .serializers import FaceSerializer
-from .utils import  FaceRecognizer , FaceDetector
-import face_recognition as fr
-from .models import Face
-from id_card.models import IDCard
-from user_status.models import UserStatus
 from django.contrib.auth.models import User
+from django.db import transaction
+import face_recognition as fr
+import tempfile
+import os
+
+from .models import Face
+from user_status.models import UserStatus
+from id_card.models import IDCard
+from .serializers import FaceSerializer
+from .utils import FaceRecognizer, FaceDetector
 
 
 
@@ -25,6 +29,7 @@ class FaceViewSet(ViewSet):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         username = serializer.validated_data.get('username')
+        photo = serializer.validated_data.get('photo')
         
         try:
             user = User.objects.get(username=username)
@@ -53,52 +58,49 @@ class FaceViewSet(ViewSet):
                 'message': 'No ID card found for this user. Please upload ID card first.'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        if Face.objects.filter(user=user).exists():
-            return Response({
-                'ok': False,
-                'message': 'Face already uploaded for this user',
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        face_user = serializer.save()
-        
+
+
+        temp_path = None
         try:
-
-            facecropper = FaceDetector()
-            facecropper_status = facecropper.crop_and_save_face(face_user.photo.path)
+            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(photo.name)[1]) as temp_file:
+                for chunk in photo.chunks():
+                    temp_file.write(chunk)
+                temp_path = temp_file.name
             
-
-            if facecropper_status == False:
-   
-                face_user.delete()
-
+            face_detector = FaceDetector()
+            face_detected = face_detector.crop_and_save_face(temp_path)
+            
+            if not face_detected:
                 return Response({
                     'ok': False,
-                    'message': f'No face found'
-                }, status=400)
-
-
-            encoded = {}
-            
+                    'message': 'No face found in the uploaded image'
+                }, status=status.HTTP_400_BAD_REQUEST)
             
             id_card_face = fr.load_image_file(id_card.photo.path)
             id_card_encodings = fr.face_encodings(id_card_face)
-
-
             
             if not id_card_encodings:
-                face_user.delete()
                 return Response({
                     'ok': False,
                     'message': 'No face detected in the ID card image'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            encoded[user] = id_card_encodings[0]
+            encoded = {user: id_card_encodings[0]}
+            face_recognizer = FaceRecognizer(encoded)
+            result = face_recognizer.classify_face(temp_path)
             
-
-            facerecognizer = FaceRecognizer(encoded)
-            result = facerecognizer.classify_face(face_user.photo.path)
+            if result != user:
+                return Response({
+                    'ok': False,
+                    'message': 'Faces do not match. The photo does not match the ID card.'
+                }, status=status.HTTP_400_BAD_REQUEST)
             
-            if result == user:
+            with transaction.atomic():
+                Face.objects.create(
+                    user=user,
+                    photo=photo 
+                )
+                
                 user_status, created = UserStatus.objects.get_or_create(
                     user=user,
                     defaults={'user_face_status': True, 'user_idcard_status': True}
@@ -106,26 +108,19 @@ class FaceViewSet(ViewSet):
                 if not created:
                     user_status.user_face_status = True
                     user_status.save()
-                
-                return Response({
-                    'ok': True,
-                    'username': user.username,
-                    'message': 'Faces match successfully. Verification completed.'
-                }, status=status.HTTP_200_OK)
-            else:
-                face_user.delete()
-                return Response({
-                    'ok': False,
-                    'message': 'Faces do not match. The photo does not match the ID card.'
-                }, status=status.HTTP_400_BAD_REQUEST)
-                
+            
+            return Response({
+                'ok': True,
+                'username': user.username,
+                'message': 'Faces match successfully. Verification completed.',
+            }, status=status.HTTP_200_OK)
+            
         except Exception as e:
-
-            if face_user and face_user.pk:
-                face_user.delete()
-
-
             return Response({
                 'ok': False,
                 'message': f'Error processing face: {str(e)}'
             }, status=status.HTTP_400_BAD_REQUEST)
+        
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                os.unlink(temp_path)

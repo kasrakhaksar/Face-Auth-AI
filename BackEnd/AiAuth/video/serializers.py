@@ -1,9 +1,8 @@
-from rest_framework.serializers import Serializer, CharField, FileField, ListField, ValidationError
+from rest_framework.serializers import Serializer, CharField, FileField, ValidationError
 from django.contrib.auth.models import User
-from django.core.files.base import ContentFile
-from .models import Video
 import os
-import uuid
+
+
 
 class VideoSerializer(Serializer):
     username = CharField(max_length=150)
@@ -40,24 +39,3 @@ class VideoSerializer(Serializer):
             return value
         except User.DoesNotExist:
             raise ValidationError(f'User with username "{value}" does not exist')
-
-    def create(self, validated_data):
-        user = self.context.get('user_instance')
-        if not user:
-            user = User.objects.get(username=validated_data['username'])
-        
-        video_file = validated_data['video']
-        
-        file_name = f"video_{user.username}_{uuid.uuid4().hex[:10]}.mp4"
-        
-        video_file_content = video_file.read()
-        
-        new_video_file = ContentFile(video_file_content)
-        new_video_file.name = file_name
-        
-        video = Video.objects.create(
-            user=user, 
-            video_field=new_video_file
-        )
-        
-        return video

@@ -1,20 +1,28 @@
 from rest_framework.serializers import Serializer, CharField, ImageField , ValidationError
 from django.contrib.auth.models import User
-from .models import IDCard
+import os
+
 
 class IDCardSerializer(Serializer):
     username = CharField()
     photo = ImageField()
 
-    def create(self, validated_data):
-        username = validated_data['username']
+    def validate_photo(self, value):
+        if value.size > 5 * 1024 * 1024:  
+            raise ValidationError("Image size should not exceed 5MB")
         
+        valid_extensions = ['.jpg', '.jpeg', '.png']
+        ext = os.path.splitext(value.name)[1].lower()
+        if ext not in valid_extensions:
+            raise ValidationError("Only JPG and PNG files are allowed")
+        
+        return value
+
+
+    def validate_username(self, value):
         try:
-            user = User.objects.get(username=username)
+            user = User.objects.get(username=value)
+            self.context['user_instance'] = user
+            return value
         except User.DoesNotExist:
-            raise ValidationError(f'User with username "{username}" does not exist')
-        
-        return IDCard.objects.create(
-            user=user, 
-            photo=validated_data['photo']
-        )
+            raise ValidationError(f'User with username "{value}" does not exist')

@@ -3,7 +3,7 @@ import speech_recognition as sr
 import cv2
 import subprocess
 import os
-
+import uuid
 
 class SpeechRecognizer:
 
@@ -28,11 +28,11 @@ class SpeechRecognizer:
 
 
 def extract_audio_from_video(video_file_path, username):
-    audio_dir = os.path.join(settings.MEDIA_ROOT, 'audio')
+    audio_dir = os.path.join(settings.MEDIA_ROOT , username)
     
     os.makedirs(audio_dir, exist_ok=True)
     
-    audio_output_path = os.path.join(audio_dir, f'{username}_audio.wav')
+    audio_output_path = os.path.join(audio_dir, f'audio_{uuid.uuid4().hex[:10]}.wav')
     
     ffmpeg_command = ['ffmpeg', '-i', video_file_path, '-vn', audio_output_path]
     subprocess.run(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)

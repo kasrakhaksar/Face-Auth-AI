@@ -1,6 +1,5 @@
 from rest_framework.serializers import Serializer, CharField, ImageField, ValidationError
 from django.contrib.auth.models import User
-from .models import Face
 import os
 
 
@@ -26,14 +25,3 @@ class FaceSerializer(Serializer):
             return value
         except User.DoesNotExist:
             raise ValidationError(f'User with username "{value}" does not exist')
-
-    def create(self, validated_data):
-        user = self.context.get('user_instance')
-        
-        if not user:
-            user = User.objects.get(username=validated_data['username'])
-        
-        return Face.objects.create(
-            user=user, 
-            photo=validated_data['photo']
-        )

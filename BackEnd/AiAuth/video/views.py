@@ -2,13 +2,16 @@ from rest_framework.viewsets import ViewSet
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import status
-from user_status.models import UserStatus
-from .serializers import VideoSerializer
-from .models import Video
 from django.contrib.auth.models import User
-from .utils import SpeechRecognizer, extract_audio_from_video
+from django.db import transaction
+import tempfile
 import os
 import re
+
+from .models import Video
+from user_status.models import UserStatus
+from .serializers import VideoSerializer
+from .utils import SpeechRecognizer, extract_audio_from_video
 
 
 class VideoViewSet(ViewSet):
@@ -26,6 +29,7 @@ class VideoViewSet(ViewSet):
         validated_data = serializer.validated_data
         username = validated_data.get('username')
         random_words_check = validated_data.get('randomCheck')
+        video_file = validated_data.get('video')
         
         try:
             user = User.objects.get(username=username)
@@ -73,90 +77,90 @@ class VideoViewSet(ViewSet):
                 'already_exists': True
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        if not random_words_check or len(random_words_check) == 0:
-            return Response({
-                'ok': False,
-                'message': 'Random words list cannot be empty'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        video_user = None
+        temp_video_path = None
+        temp_audio_path = None
         
         try:
-            video_user = serializer.save()
-            video_path = video_user.video_field.path
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_video:
+                for chunk in video_file.chunks():
+                    temp_video.write(chunk)
+                temp_video_path = temp_video.name
             
-            audio_path = extract_audio_from_video(video_path, username)
+            temp_audio_path = extract_audio_from_video(temp_video_path, f"temp_{username}")
             
-            if not audio_path or not os.path.exists(audio_path):
-                video_user.delete()
-
+            if not temp_audio_path or not os.path.exists(temp_audio_path):
                 return Response({
                     'ok': False,
                     'message': 'Failed to extract audio from video'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-
-            speechrecognizer = SpeechRecognizer(language='en')
-            recognized_text = speechrecognizer.recognize_speech(audio_path)
-
+            speech_recognizer = SpeechRecognizer(language='en')
+            recognized_text = speech_recognizer.recognize_speech(temp_audio_path)
             
             if not recognized_text:
-                video_user.delete()
                 return Response({
                     'ok': False,
                     'message': 'No speech recognized in video'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-
-
-            recognized_text_words = re.findall(r'[\u0600-\u06FF0-9]+', recognized_text)
+   
+            recognized_words = re.findall(r'\b\w+\b', recognized_text.lower())
+            # recognized_words = re.findall(r'[\u0600-\u06FF0-9]+', recognized_text)
+ 
+            random_words_sorted = sorted([word.lower() for word in random_words_check])
+            recognized_words_sorted = sorted([word.lower() for word in recognized_words])
             
-            random_words_check_sorted = sorted(random_words_check)
-            recognized_text_words_sorted = sorted(recognized_text_words)
-
-
-
-            if random_words_check_sorted == recognized_text_words_sorted:
-                user_status.user_video_status = True
-                user_status.save()
+            if random_words_sorted != recognized_words_sorted:
+                missing_words = list(set(random_words_sorted) - set(recognized_words_sorted))
+                extra_words = list(set(recognized_words_sorted) - set(random_words_sorted))
                 
-                return Response({
-                    'ok': True,
-                    'username': user.username,
-                    'message': 'Video verification completed successfully. All steps finished!',
-                }, status=status.HTTP_200_OK)
-            else:
-                video_user.delete()
-
-                
-                missing_words = list(set(random_words_check_sorted) - set(recognized_text_words_sorted))
-                extra_words = list(set(recognized_text_words_sorted) - set(random_words_check_sorted))
+                if temp_audio_path and os.path.exists(temp_audio_path):
+                    os.remove(temp_audio_path)
                 
                 return Response({
                     'ok': False,
                     'message': 'The spoken words do not match the expected words',
                     'details': {
-                        'expected_words': random_words_check_sorted,
-                        'detected_words': recognized_text_words_sorted,
+                        'expected_words': random_words_sorted,
+                        'detected_words': recognized_words_sorted,
                         'missing_words': missing_words,
                         'extra_words': extra_words
                     }
                 }, status=status.HTTP_400_BAD_REQUEST)
-                
-        except Exception as e:
-            if video_user:
-                try:
-                    video_user.delete()
-                except:
-                    pass
-
-            try:
-                os.remove(audio_path)
-            except:
-                pass
-
             
+            with transaction.atomic():
+                Video.objects.create(
+                    user=user,
+                    video_field=video_file
+                )
+                
+                user_status.user_video_status = True
+                user_status.save()
+            
+            if temp_audio_path and os.path.exists(temp_audio_path):
+                os.remove(temp_audio_path)
+            
+            return Response({
+                'ok': True,
+                'username': user.username,
+                'message': 'Video verification completed successfully. All steps finished!',
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
             return Response({
                 'ok': False,
                 'message': f'Video processing error: {str(e)}'
             }, status=status.HTTP_400_BAD_REQUEST)
+        
+        finally:
+            if temp_video_path and os.path.exists(temp_video_path):
+                try:
+                    os.unlink(temp_video_path)
+                except:
+                    pass
+            
+            if temp_audio_path and os.path.exists(temp_audio_path):
+                try:
+                    os.remove(temp_audio_path)
+                except:
+                    pass
