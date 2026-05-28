@@ -1,17 +1,12 @@
+# id_card/views.py
 from rest_framework.viewsets import ViewSet
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
-from django.contrib.auth.models import User
-from django.db import transaction
-import tempfile
-import os
-
-from .models import IDCard
-from user_status.models import UserStatus
+from rest_framework import status
+from celery.result import AsyncResult
+from django.conf import settings
 from .serializers import IDCardSerializer
-from .utils import FaceDetector
-
-
+from .tasks import process_id_card_verification
 
 class IDCardViewSet(ViewSet):
     parser_classes = [MultiPartParser, FormParser]
@@ -23,66 +18,57 @@ class IDCardViewSet(ViewSet):
             return Response({
                 'ok': False,
                 'errors': serializer.errors
-            }, status=400)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         username = serializer.validated_data.get('username')
         photo = serializer.validated_data.get('photo')
         
-        try:
-            user = User.objects.get(username=username)
-        except User.DoesNotExist:
-            return Response({
-                'ok': False,
-                'message': f'User "{username}" not found'
-            }, status=404)
+        photo_data = photo.read()
+        photo_name = photo.name
         
-        user_status, user_create = UserStatus.objects.get_or_create(user=user)
-        
-        if user_status.user_idcard_status:
-            return Response({
-                'ok': False,
-                'message': 'ID card already processed for this user',
-            }, status=400)
-        
-        temp_path = None
-        try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(photo.name)[1]) as temp_file:
-                for chunk in photo.chunks():
-                    temp_file.write(chunk)
-                temp_path = temp_file.name
-            
-            face_detector = FaceDetector()
-            face_detected = face_detector.crop_and_save_face(temp_path)
-            
-            if not face_detected:
-                return Response({
-                    'ok': False,
-                    'message': 'No face found in the uploaded image'
-                }, status=400)
-            
-            with transaction.atomic():
-                IDCard.objects.create(
-                    user=user,
-                    photo=photo  
-                )
-                
-                user_status.user_idcard_status = True
-                user_status.save()
-                
-
-                
+        if getattr(settings, 'CELERY_TASK_ALWAYS_EAGER', False):
+            result = process_id_card_verification(username, photo_data, photo_name)
+            return Response(
+                {k: v for k, v in result.items() if k != 'status_code'}, 
+                status=result.get('status_code', status.HTTP_200_OK)
+            )
+        else:
+            task = process_id_card_verification.delay(username, photo_data, photo_name)
             return Response({
                 'ok': True,
-                'username': user.username,
-                'message': 'Face detected and ID card processed successfully',
-            }, status=200)
-            
-        except Exception as e:
-            return Response({
-                'ok': False,
-                'message': f'Processing failed: {str(e)}'
-            }, status=400)
+                'task_id': task.id,
+                'message': 'ID card verification is being processed. Use the task ID to check status.'
+            }, status=status.HTTP_202_ACCEPTED)
+    
+
+    def get_task_status(self, request, task_id):
+
+        task_result = AsyncResult(task_id)
         
-        finally:
-            if temp_path and os.path.exists(temp_path):
-                os.unlink(temp_path)
+        if task_result.state == 'PENDING':
+            response = {
+                'state': task_result.state,
+                'status': 'Task is pending...',
+                'ok': None
+            }
+        elif task_result.state == 'FAILURE':
+            response = {
+                'state': task_result.state,
+                'status': str(task_result.info),
+                'ok': False
+            }
+        elif task_result.state == 'SUCCESS':
+            result = task_result.result
+            response = {
+                'state': task_result.state,
+                'result': result,
+                'ok': result.get('ok', False)
+            }
+        else:
+            response = {
+                'state': task_result.state,
+                'status': 'Task is processing...',
+                'ok': None
+            }
+        
+        return Response(response)

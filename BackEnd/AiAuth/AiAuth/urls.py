@@ -17,22 +17,18 @@ Including another URLconf
 
 
 from django.contrib import admin
-from django.urls import path , include
+from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from django.conf.urls.static import static
 import AiAuth.settings
-from django.urls import path
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
-
 
 from id_card.views import IDCardViewSet
 from face.views import FaceViewSet
 from video.views import VideoViewSet
 from user_status.views import UserStatusViewSet
-
-
 
 schema_view = get_schema_view(
     openapi.Info(
@@ -46,19 +42,23 @@ schema_view = get_schema_view(
 
 router = DefaultRouter()
 
-
-router.register(r'id_card', IDCardViewSet , basename='id_card')
-router.register(r'face', FaceViewSet , basename='face')
-router.register(r'video', VideoViewSet , basename='video')
-router.register(r'userstatus', UserStatusViewSet , basename='userstatus')
-
-
+router.register(r'id_card', IDCardViewSet, basename='id_card')
+router.register(r'face', FaceViewSet, basename='face')
+router.register(r'video', VideoViewSet, basename='video')
+router.register(r'userstatus', UserStatusViewSet, basename='userstatus')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    
     path('swagger(<format>\.json|\.yaml)', schema_view.without_ui(cache_timeout=0), name='schema-json'),
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
-    path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
     
-    path('', include(router.urls))
-] + static(AiAuth.settings.MEDIA_URL, document_root=AiAuth.settings.MEDIA_ROOT)
+    path('id_card/task-status/<str:task_id>/', IDCardViewSet.as_view({'get': 'get_task_status'}), name='task-status-idcard'),
+    path('face/task-status/<str:task_id>/', FaceViewSet.as_view({'get': 'get_task_status'}), name='task-status-face'),
+    path('video/task-status/<str:task_id>/', VideoViewSet.as_view({'get': 'get_task_status'}),  name='task-status-video'),
+
+    path('', include(router.urls)),
+
+]
+
+urlpatterns += static(AiAuth.settings.MEDIA_URL, document_root=AiAuth.settings.MEDIA_ROOT)
