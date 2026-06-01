@@ -17,13 +17,6 @@ jobs:
           POSTGRES_DB: test_db
           POSTGRES_USER: test_user
           POSTGRES_PASSWORD: test_password
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U test_user"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
 
     env:
       DJANGO_SECRET_KEY: test-secret-key
@@ -57,9 +50,11 @@ jobs:
             libgtk-3-dev \
             postgresql-client
 
-      - run: |
-          for i in {1..30}; do
-            pg_isready -h postgres -U test_user && exit 0
+      - name: Wait for PostgreSQL
+        run: |
+          for i in {1..40}; do
+            pg_isready -h postgres -p 5432 -U test_user && exit 0
+            echo "waiting for postgres..."
             sleep 2
           done
           exit 1
