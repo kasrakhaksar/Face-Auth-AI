@@ -1,6 +1,7 @@
 from rest_framework.viewsets import ViewSet
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.decorators import action
 from rest_framework import status
 from celery.result import AsyncResult
 from .serializers import FaceSerializer
@@ -34,31 +35,31 @@ class FaceViewSet(ViewSet):
             'message': 'Face verification is being processed. Use the task ID to check status.'
         }, status=status.HTTP_202_ACCEPTED)
     
-    
-    def get_task_status(self, request, task_id):
+    @action(detail=True, methods=["get"], url_path="status")
+    def get_task_status(self, request, pk=None):
+        task_id = pk
 
         task_result = AsyncResult(task_id)
-        
+
         if task_result.state == 'PENDING':
-            response = {
+            return Response({
                 'state': task_result.state,
                 'status': 'Task is pending...'
-            }
+            })
+
         elif task_result.state == 'FAILURE':
-            response = {
+            return Response({
                 'state': task_result.state,
                 'status': str(task_result.info),
-            }
+            })
+
         elif task_result.state == 'SUCCESS':
-            result = task_result.result
-            response = {
+            return Response({
                 'state': task_result.state,
-                'result': result
-            }
-        else:
-            response = {
-                'state': task_result.state,
-                'status': 'Task is processing...'
-            }
-        
-        return Response(response)
+                'result': task_result.result
+            })
+
+        return Response({
+            'state': task_result.state,
+            'status': 'Task is processing...'
+        })
