@@ -8,6 +8,7 @@ on:
 
 jobs:
   test:
+    name: Run Tests
     runs-on: ubuntu-latest
 
     services:
@@ -31,19 +32,22 @@ jobs:
       DB_NAME: test_db
       DB_USER: test_user
       DB_PASSWORD: test_password
-      DB_HOST: localhost  # Fixed: changed from 'postgres'
+      DB_HOST: localhost
       DB_PORT: 5432
       CELERY_TASK_ALWAYS_EAGER: "True"
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.14"
           cache: "pip"
 
-      - run: |
+      - name: Install System Dependencies
+        run: |
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
@@ -57,12 +61,16 @@ jobs:
             libgtk-3-dev \
             postgresql-client
 
-      - run: |
+      - name: Install Python Dependencies
+        run: |
           python -m pip install --upgrade pip
           pip install numpy pillow scipy dlib-bin
           pip install face-recognition --no-deps
           pip install -r requirements.txt
+          pip install pytest
 
-      - run: python manage.py migrate
+      - name: Run Django Migrations
+        run: python manage.py migrate
 
-      - run: pytest -q
+      - name: Run Tests
+        run: pytest -q -v
