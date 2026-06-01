@@ -73,4 +73,4 @@ jobs:
         run: python manage.py migrate
 
       - name: Run Tests
-        run: pytest -q -v
+        run: python manage.py test
