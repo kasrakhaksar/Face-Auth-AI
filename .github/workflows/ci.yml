@@ -31,7 +31,7 @@ jobs:
       DB_NAME: test_db
       DB_USER: test_user
       DB_PASSWORD: test_password
-      DB_HOST: postgres
+      DB_HOST: localhost
       DB_PORT: 5432
       CELERY_TASK_ALWAYS_EAGER: "True"
 
@@ -42,7 +42,12 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.14"
+          python-version: "3.13"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client libpq-dev
 
       - name: Install Python Dependencies
         run: |
@@ -52,10 +57,22 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-django
 
+      - name: Wait for PostgreSQL to be ready
+        run: |
+          echo "Waiting for PostgreSQL to be ready..."
+          for i in {1..30}; do
+            if pg_isready -h localhost -U test_user -d test_db; then
+              echo "PostgreSQL is ready!"
+              break
+            fi
+            echo "Still waiting... (attempt $i/30)"
+            sleep 2
+          done
+
       - name: Run migrations
         run: |
           python manage.py migrate
 
       - name: Run tests
         run: |
-          python manage.py test --verbosity=2
+          python manage.py test
