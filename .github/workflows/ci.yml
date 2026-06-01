@@ -34,12 +34,10 @@ jobs:
       DB_HOST: postgres
       DB_PORT: 5432
       CELERY_TASK_ALWAYS_EAGER: "True"
-      PIP_DISABLE_PIP_VERSION_CHECK: "1"
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -62,13 +60,19 @@ jobs:
             libx11-dev \
             libgtk-3-dev
 
-
-      - name: Install dependencies
+      - name: Install Python dependencies (no dlib build)
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
 
-  
+          pip install numpy pillow scipy
+
+          pip install dlib-bin
+
+          pip install face-recognition --no-deps
+
+          pip install -r requirements.txt --no-deps
+
+
       - name: Run migrations
         run: |
           python manage.py migrate
