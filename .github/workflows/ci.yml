@@ -9,50 +9,60 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: test_db
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U test_user -d test_db"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
     env:
       DJANGO_SECRET_KEY: test-secret-key
       DEBUG: "1"
+      DB_NAME: test_db
+      DB_USER: test_user
+      DB_PASSWORD: test_password
+      DB_HOST: postgres
+      DB_PORT: 5432
       CELERY_TASK_ALWAYS_EAGER: "True"
-      DATABASE_ENGINE: django.db.backends.sqlite3
-      DATABASE_NAME: /tmp/test_db.sqlite3
-      DATABASE_USER: ""
-      DATABASE_PASSWORD: ""
-      DATABASE_HOST: ""
-      DATABASE_PORT: ""
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
           cache: "pip"
 
-      - name: Install system dependencies
-        run: |
+      - run: |
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
             cmake \
             pkg-config \
+            ffmpeg \
             libboost-all-dev \
             libopenblas-dev \
             liblapack-dev \
             libx11-dev \
-            libgtk-3-dev
+            libgtk-3-dev \
+            postgresql-client
 
-      - name: Install Python packages
-        run: |
+      - run: |
           python -m pip install --upgrade pip
           pip install numpy pillow scipy dlib-bin
           pip install face-recognition --no-deps
           pip install -r requirements.txt
 
-      - name: Run migrations
-        run: python manage.py migrate
+      - run: python manage.py migrate
 
-      - name: Run tests
-        run: pytest -q
+      - run: pytest -q
