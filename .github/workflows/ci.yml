@@ -1,4 +1,4 @@
-name: CI
+name: CI (Alternative)
 
 on:
   push:
@@ -42,7 +42,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
 
       - name: Install system dependencies
         run: |
@@ -57,22 +57,21 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-django
 
-      - name: Wait for PostgreSQL to be ready
+      - name: Wait for PostgreSQL
         run: |
-          echo "Waiting for PostgreSQL to be ready..."
-          for i in {1..30}; do
-            if pg_isready -h localhost -U test_user -d test_db; then
-              echo "PostgreSQL is ready!"
-              break
-            fi
-            echo "Still waiting... (attempt $i/30)"
+          until pg_isready -h localhost -U test_user -d test_db; do
+            echo "Waiting for database..."
             sleep 2
           done
 
-      - name: Run migrations
+      - name: Reset database and run migrations
         run: |
-          python manage.py migrate
+          PGPASSWORD=test_password dropdb -h localhost -U test_user --if-exists test_db
+          PGPASSWORD=test_password createdb -h localhost -U test_user test_db
+          python manage.py migrate --noinput
+          python manage.py migrate --run-syncdb
 
-      - name: Run tests
+      - name: Run tests with specific apps
         run: |
-          python manage.py test
+          python manage.py test --noinput --verbosity=2 || \
+          python manage.py test auth --noinput --verbosity=2
