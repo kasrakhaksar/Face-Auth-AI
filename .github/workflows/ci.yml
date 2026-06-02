@@ -1,4 +1,4 @@
-name: CI (Alternative)
+name: CI
 
 on:
   push:
@@ -10,29 +10,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_DB: test_db
-          POSTGRES_USER: test_user
-          POSTGRES_PASSWORD: test_password
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U test_user"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-
     env:
       DJANGO_SECRET_KEY: test-secret-key
       DEBUG: "1"
-      DB_NAME: test_db
-      DB_USER: test_user
-      DB_PASSWORD: test_password
-      DB_HOST: localhost
-      DB_PORT: 5432
       CELERY_TASK_ALWAYS_EAGER: "True"
 
     steps:
@@ -42,12 +22,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client libpq-dev
+          python-version: "3.14"
 
       - name: Install Python Dependencies
         run: |
@@ -57,21 +32,10 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-django
 
-      - name: Wait for PostgreSQL
+      - name: Run migrations
         run: |
-          until pg_isready -h localhost -U test_user -d test_db; do
-            echo "Waiting for database..."
-            sleep 2
-          done
+          python manage.py migrate
 
-      - name: Reset database and run migrations
+      - name: Run tests
         run: |
-          PGPASSWORD=test_password dropdb -h localhost -U test_user --if-exists test_db
-          PGPASSWORD=test_password createdb -h localhost -U test_user test_db
-          python manage.py migrate --noinput
-          python manage.py migrate --run-syncdb
-
-      - name: Run tests with specific apps
-        run: |
-          python manage.py test --noinput --verbosity=2 || \
-          python manage.py test auth --noinput --verbosity=2
+          python manage.py test --verbosity=2
