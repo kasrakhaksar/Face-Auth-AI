@@ -10,29 +10,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_DB: test_db
-          POSTGRES_USER: test_user
-          POSTGRES_PASSWORD: test_password
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U test_user"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-
     env:
-      DJANGO_SECRET_KEY: test-secret-key
+      DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
       DEBUG: "1"
-      DB_NAME: test_db
-      DB_USER: test_user
-      DB_PASSWORD: test_password
-      DB_HOST: postgres
-      DB_PORT: 5432
       CELERY_TASK_ALWAYS_EAGER: "True"
 
     steps:
@@ -42,12 +22,15 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
-      - name: Install dependencies
+      - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install numpy pillow scipy dlib-bin
+          pip install face-recognition --no-deps
           pip install -r requirements.txt
+          pip install pytest pytest-django
 
       - name: Run migrations
         run: |
