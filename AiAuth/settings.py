@@ -103,14 +103,12 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": os.getenv("DB_NAME", "db.sqlite3"),
-        # اگر می‌خوای دیتابیس تست جدا باشه:
         "TEST": {
             "NAME": "test_db.sqlite3",
         }
     }
 }
 
-# بقیه تنظیماتت سر جای خودشون
 
 
 # Password validation
