@@ -53,9 +53,9 @@ urlpatterns = [
     path('swagger(<format>\.json|\.yaml)', schema_view.without_ui(cache_timeout=0), name='schema-json'),
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     
-    path('id_card/task-status/<str:task_id>/', IDCardViewSet.as_view({'get': 'get_task_status'}), name='task-status-idcard'),
-    path('face/task-status/<str:task_id>/', FaceViewSet.as_view({'get': 'get_task_status'}), name='task-status-face'),
-    path('video/task-status/<str:task_id>/', VideoViewSet.as_view({'get': 'get_task_status'}),  name='task-status-video'),
+    path('id_card/task-status/<str:pk>/', IDCardViewSet.as_view({'get': 'get_task_status'}), name='task-status-idcard'),
+    path('face/task-status/<str:pk>/', FaceViewSet.as_view({'get': 'get_task_status'}), name='task-status-face'),
+    path('video/task-status/<str:pk>/', VideoViewSet.as_view({'get': 'get_task_status'}),  name='task-status-video'),
 
     path('', include(router.urls)),
 
