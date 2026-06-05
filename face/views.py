@@ -36,9 +36,7 @@ class FaceViewSet(ViewSet):
         }, status=status.HTTP_202_ACCEPTED)
     
     @action(detail=True, methods=["get"], url_path="status")
-    def get_task_status(self, request, pk=None):
-        task_id = pk
-
+    def get_task_status(self, request, task_id =None):
         task_result = AsyncResult(task_id)
 
         if task_result.state == 'PENDING':

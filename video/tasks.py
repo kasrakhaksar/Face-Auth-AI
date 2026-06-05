@@ -82,7 +82,7 @@ def process_video_verification(self, username, random_words_check, video_data, v
                 'status_code': 400
             }
         
-        speech_recognizer = SpeechRecognizer(language='en')
+        speech_recognizer = SpeechRecognizer(language='fa-IR')
         recognized_text = speech_recognizer.recognize_speech(temp_audio_path)
         
         if not recognized_text:
