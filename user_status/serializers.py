@@ -6,4 +6,4 @@ class UserStatusSerializer(ModelSerializer):
     
     class Meta:
         model = UserStatus
-        fields = ['username', 'user_face_status', 'user_idcard_status', 'user_video_status']
+        fields = ['username', 'user_idcard_status', 'user_face_status', 'user_video_status']
