@@ -33,14 +33,9 @@ class SpeechRecognizer:
 
 
 
-def extract_audio_from_video(
-    video_file_path: str,
-    username: str,
-) -> str:
-    audio_dir: str = os.path.join(
-        settings.MEDIA_ROOT,
-        username,
-    )
+def extract_audio_from_video(video_file_path: str, username: str) -> str:
+
+    audio_dir: str = os.path.join(settings.MEDIA_ROOT, username)
 
     os.makedirs(audio_dir, exist_ok=True)
 

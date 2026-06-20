@@ -1,9 +1,8 @@
-from rest_framework.serializers import Serializer, CharField, ImageField, ValidationError
+from rest_framework.serializers import Serializer, ImageField, ValidationError
 import os
 
 
 class IDCardSerializer(Serializer):
-    username = CharField()
     photo = ImageField()
 
     def validate_photo(self, value):

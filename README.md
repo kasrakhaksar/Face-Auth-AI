@@ -8,72 +8,109 @@ AI-powered identity verification system built with **Django REST Framework**.
 
 ---
 
-## Overview
+# Overview
 
 **Face Authentication AI** is a multi-step identity verification API.
 
-The system verifies a user's identity through a secure pipeline:
+The system uses JWT-based authentication and verifies the user's identity through a secure pipeline:
 
 ```
+
+JWT Login
+|
+▼
 ┌───────────────┐
 │  Upload ID    │
 │     Card      │
 └───────┬───────┘
-        │
-        ▼
+│
+▼
 ┌───────────────┐
 │ Face Validate │
 └───────┬───────┘
-        │
-        ▼
+│
+▼
 ┌───────────────┐
 │ Upload Selfie │
 └───────┬───────┘
-        │
-        ▼
+│
+▼
 ┌───────────────┐
 │ Face Matching │
 └───────┬───────┘
-        │
-        ▼
+│
+▼
 ┌───────────────┐
 │ Upload Video  │
 │ + Text Check  │
 └───────┬───────┘
-        │
-        ▼
+│
+▼
 ┌───────────────┐
 │   Verified    │
 └───────────────┘
+
 ```
 
 ---
 
-#  Features
 
-- National ID card verification  
-- Face matching between selfie and ID card  
-- Video-based liveness verification  
-- Speech challenge validation  
-- Async AI processing with Celery  
-- Background task monitoring  
-- REST API architecture  
-- Swagger API documentation  
+## Get Token
+
+```
+POST /api/token/
+```
+
+Body:
+
+```json
+{
+    "username": "username",
+    "password": "password"
+}
+```
+
+
+Response:
+
+```json
+{
+    "access": "jwt-access-token",
+    "refresh": "jwt-refresh-token"
+}
+```
+
+
+
 
 ---
 
-#  Verification Process
+# Features
+
+* JWT authentication
+* National ID card verification
+* Face matching between selfie and ID card
+* Video-based liveness verification
+* Speech challenge validation
+* Async AI processing with Celery
+* Background task monitoring
+* REST API architecture
+* Swagger API documentation
+
+---
+
+# Verification Process
 
 ## 1️⃣ ID Card Verification
 
-User uploads a photo of their national ID card.
+Authenticated user uploads their national ID card.
 
-The system processes the image and starts verification.
+---
 
-### Request
+## Upload ID Card
 
 ```
-POST /id_card/
+POST /api/id_card/
 ```
 
 Content-Type:
@@ -82,21 +119,23 @@ Content-Type:
 multipart/form-data
 ```
 
-### Body
+Headers:
 
-| Field | Type | Description |
-|---|---|---|
-| username | string | User identifier |
+```
+Authorization: Bearer <token>
+```
+
+Body:
+
+| Field | Type  | Description   |
+| ----- | ----- | ------------- |
 | photo | image | ID card image |
 
 Example:
 
 ```
-username=john
 photo=id_card.jpg
 ```
-
-
 
 Maximum size:
 
@@ -106,27 +145,40 @@ Maximum size:
 
 ---
 
-## 🔄 Check
+## Processing
 
-AI processing runs in background.
+The request creates a Celery task.
 
-Check the result:
+Response:
+
+```json
+{
+    "ok": true,
+    "task_id": "9f82a1",
+    "message": "Processing started"
+}
+```
+
+---
+
+## Check Status
 
 ```
-GET /id_card/task-status/{task_id}/
+GET /api/id_card/task-status/{task_id}/
 ```
 
 Example:
 
 ```
-GET /id_card/task-status/9f82a1/
+GET /api/id_card/task-status/9f82a1/
 ```
 
 Response:
 
 ```json
 {
-    "status": "PENDING"
+    "state": "PENDING",
+    "ok": null
 }
 ```
 
@@ -134,15 +186,8 @@ or:
 
 ```json
 {
-    "status": "SUCCESS"
-}
-```
-
-or:
-
-```json
-{
-    "status": "FAILED"
+    "state": "SUCCESS",
+    "ok": true
 }
 ```
 
@@ -151,18 +196,18 @@ or:
 # 2️⃣ Face Verification
 
 After successful ID verification,
-the user uploads a selfie.
+the authenticated user uploads a selfie.
 
 The system compares:
 
 ```
-       Selfie
-          │
-          ▼
-   Face Recognition AI
-          │
-          ▼
-    ID Card Portrait
+Selfie
+   |
+   ▼
+Face Recognition AI
+   |
+   ▼
+ID Card Face
 ```
 
 ---
@@ -170,7 +215,7 @@ The system compares:
 ## Upload Face Image
 
 ```
-POST /face/
+POST /api/face/
 ```
 
 Content-Type:
@@ -179,20 +224,23 @@ Content-Type:
 multipart/form-data
 ```
 
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
 Body:
 
-| Field | Type | Description |
-|---|---|---|
-| username | string | User identifier |
+| Field | Type  | Description |
+| ----- | ----- | ----------- |
 | photo | image | User selfie |
 
 Example:
 
 ```
-username=john
 photo=selfie.png
 ```
-
 
 Maximum size:
 
@@ -202,33 +250,31 @@ Maximum size:
 
 ---
 
-## 🔄 Check
+## Check Status
 
 ```
-GET /face/task-status/{task_id}/
+GET /api/face/task-status/{task_id}/
 ```
-
-Continue to video verification after success.
 
 ---
 
 # 3️⃣ Video Liveness Verification
 
-The user records a short video
-while saying a generated sentence.
+The user records a video while saying
+a generated challenge sentence.
 
 The API validates:
 
--  Video file
--  Spoken text
--  User presence
+* Video file
+* Spoken words
+* User presence
 
 ---
 
 ## Upload Video
 
 ```
-POST /video/
+POST /api/video/
 ```
 
 Content-Type:
@@ -237,19 +283,22 @@ Content-Type:
 multipart/form-data
 ```
 
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
 Body:
 
-| Field | Type | Description |
-|---|---|---|
-| username | string | User identifier |
-| video | file | Verification video |
-| randomCheck | string | Sentence user must say |
+| Field       | Type   | Description         |
+| ----------- | ------ | ------------------- |
+| video       | file   | Verification video  |
+| randomCheck | string | Words user must say |
 
 Example:
 
 ```
-username=john
-
 video=verification.mp4
 
 randomCheck=
@@ -273,39 +322,36 @@ Maximum size:
 
 ---
 
-## 🔄 Check
+## Check Status
 
 ```
-GET /video/task-status/{task_id}/
+GET /api/video/task-status/{task_id}/
 ```
-
 
 ---
 
 # User Verification Status
 
-Get final verification result:
+Get verification progress:
 
 ```
-POST /userstatus/
+GET /api/userstatus/
 ```
 
-### Body
+Headers:
 
-| Field | Type | Description |
-|---|---|---|
-| username | string | User identifier |
+```
+Authorization: Bearer <token>
+```
 
-
-Example:
-
+Example response:
 
 ```json
 {
-    "username": "john",
+    "username" : "username",
     "user_idcard_status": true,
     "user_face_status": true,
-    "user_video_status": true,
+    "user_video_status": true
 }
 ```
 
@@ -313,12 +359,15 @@ Example:
 
 # Async Processing
 
-All AI-heavy operations are handled asynchronously.
+All AI-heavy operations run asynchronously.
 
 Flow:
 
 ```
 API Request
+     |
+     ▼
+JWT Authentication
      |
      ▼
 Create Celery Task
@@ -347,9 +396,12 @@ GET /swagger/
 
 ---
 
-# ⚠️ Important Notes
+# Important Notes
 
-- Images are validated before processing.
-- Videos have size and format restrictions.
-- Every AI operation runs asynchronously.
-- Always wait for `SUCCESS` before moving to the next step.
+* All APIs require JWT authentication.
+* User identity comes from JWT token.
+* No username is sent from the client.
+* Images are validated before processing.
+* Videos have size and format restrictions.
+* AI processing runs in Celery workers.
+* Always wait for SUCCESS before moving to the next step.

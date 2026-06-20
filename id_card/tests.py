@@ -5,14 +5,16 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from unittest.mock import patch, MagicMock
 from PIL import Image
 import tempfile
-
+from rest_framework_simplejwt.tokens import RefreshToken
 
 
 def get_test_image():
     image = Image.new("RGB", (100, 100), color="red")
 
     tmp_file = tempfile.NamedTemporaryFile(suffix=".jpg")
+
     image.save(tmp_file, format="JPEG")
+
     tmp_file.seek(0)
 
     return SimpleUploadedFile(
@@ -30,7 +32,15 @@ class IDCardViewSetTests(APITestCase):
             password="123456"
         )
 
-        self.url = "/id_card/"
+        refresh = RefreshToken.for_user(self.user)
+
+        self.access_token = str(refresh.access_token)
+
+        self.client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token}"
+        )
+
+        self.url = "/api/id_card/"
         self.photo = get_test_image()
 
 
@@ -44,10 +54,13 @@ class IDCardViewSetTests(APITestCase):
         }
 
         with self.settings(CELERY_TASK_ALWAYS_EAGER=True):
-            response = self.client.post(self.url, {
-                "username": "testuser",
-                "photo": self.photo
-            }, format="multipart")
+            response = self.client.post(
+                self.url,
+                {
+                    "photo": self.photo
+                },
+                format="multipart"
+            )
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data["ok"])
@@ -58,16 +71,27 @@ class IDCardViewSetTests(APITestCase):
 
         mock_task = MagicMock()
         mock_task.id = "fake-task-id"
+
         mock_delay.return_value = mock_task
 
         with self.settings(CELERY_TASK_ALWAYS_EAGER=False):
-            response = self.client.post(self.url, {
-                "username": "testuser",
-                "photo": self.photo
-            }, format="multipart")
+            response = self.client.post(
+                self.url,
+                {
+                    "photo": self.photo
+                },
+                format="multipart"
+            )
 
-        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
-        self.assertEqual(response.data["task_id"], "fake-task-id")
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_202_ACCEPTED
+        )
+
+        self.assertEqual(
+            response.data["task_id"],
+            "fake-task-id"
+        )
 
 
     @patch("id_card.views.AsyncResult")
@@ -75,9 +99,12 @@ class IDCardViewSetTests(APITestCase):
 
         mock_obj = MagicMock()
         mock_obj.state = "PENDING"
+
         mock_async.return_value = mock_obj
 
-        response = self.client.get("/id_card/fake-id/status/")
+        response = self.client.get(
+            "/api/id_card/fake-id/status/"
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["state"], "PENDING")
@@ -88,11 +115,18 @@ class IDCardViewSetTests(APITestCase):
     def test_task_status_success(self, mock_async):
 
         mock_obj = MagicMock()
+
         mock_obj.state = "SUCCESS"
-        mock_obj.result = {"ok": True, "data": "verified"}
+        mock_obj.result = {
+            "ok": True,
+            "data": "verified"
+        }
+
         mock_async.return_value = mock_obj
 
-        response = self.client.get("/id_card/fake-id/status/")
+        response = self.client.get(
+            "/api/id_card/fake-id/status/"
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data["ok"])
@@ -103,11 +137,15 @@ class IDCardViewSetTests(APITestCase):
     def test_task_status_failure(self, mock_async):
 
         mock_obj = MagicMock()
+
         mock_obj.state = "FAILURE"
         mock_obj.info = "error occurred"
+
         mock_async.return_value = mock_obj
 
-        response = self.client.get("/id_card/fake-id/status/")
+        response = self.client.get(
+            "/api/id_card/fake-id/status/"
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["state"], "FAILURE")
