@@ -1,29 +1,14 @@
-"""
-URL configuration for AiAuth project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/6.0/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
-
-
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from django.conf.urls.static import static
 import AiAuth.settings
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.permissions import AllowAny
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
+from django.urls import path
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
 
 from id_card.views import IDCardViewSet
 from face.views import FaceViewSet
@@ -32,30 +17,34 @@ from user_status.views import UserStatusViewSet
 
 schema_view = get_schema_view(
     openapi.Info(
-        title="Ai API",
+        title="Authentication API",
         default_version='v1',
-        description="API documentation for the ai project",
+        description="API documentation for the face authentication ai",
     ),
     public=True,
-    permission_classes=(IsAuthenticatedOrReadOnly,),
+    permission_classes=(AllowAny,),
+    authentication_classes=(),
 )
 
 router = DefaultRouter()
 
-router.register(r'id_card', IDCardViewSet, basename='id_card')
-router.register(r'face', FaceViewSet, basename='face')
-router.register(r'video', VideoViewSet, basename='video')
-router.register(r'userstatus', UserStatusViewSet, basename='userstatus')
+router.register(r'api/id_card', IDCardViewSet, basename='id_card')
+router.register(r'api/face', FaceViewSet, basename='face')
+router.register(r'api/video', VideoViewSet, basename='video')
+router.register(r'api/userstatus', UserStatusViewSet, basename='userstatus')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     
     path('swagger(<format>\.json|\.yaml)', schema_view.without_ui(cache_timeout=0), name='schema-json'),
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     
-    path('id_card/task-status/<str:pk>/', IDCardViewSet.as_view({'get': 'get_task_status'}), name='task-status-idcard'),
-    path('face/task-status/<str:pk>/', FaceViewSet.as_view({'get': 'get_task_status'}), name='task-status-face'),
-    path('video/task-status/<str:pk>/', VideoViewSet.as_view({'get': 'get_task_status'}),  name='task-status-video'),
+    path('api/id_card/task-status/<str:pk>/', IDCardViewSet.as_view({'get': 'get_task_status'}), name='task-status-idcard'),
+    path('api/face/task-status/<str:pk>/', FaceViewSet.as_view({'get': 'get_task_status'}), name='task-status-face'),
+    path('api/video/task-status/<str:pk>/', VideoViewSet.as_view({'get': 'get_task_status'}),  name='task-status-video'),
 
     path('', include(router.urls)),
 

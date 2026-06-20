@@ -11,18 +11,18 @@ from .utils import SpeechRecognizer, extract_audio_from_video
 
 
 @shared_task(bind=True, name='process_video_verification')
-def process_video_verification(self, username, random_words_check, video_data, video_name):
+def process_video_verification(self, user_id, random_words_check, video_data, video_name):
 
     temp_video_path = None
     temp_audio_path = None
     
     try:
         try:
-            user = User.objects.get(username=username)
+            user = User.objects.get(id=user_id)
         except User.DoesNotExist:
             return {
                 'ok': False,
-                'message': f'User with username "{username}" not found',
+                "message":"User not found",
                 'status_code': 404
             }
         
@@ -73,7 +73,7 @@ def process_video_verification(self, username, random_words_check, video_data, v
             temp_video.write(video_data)
             temp_video_path = temp_video.name
         
-        temp_audio_path = extract_audio_from_video(temp_video_path, username)
+        temp_audio_path = extract_audio_from_video(temp_video_path, user.username)
         
         if not temp_audio_path or not os.path.exists(temp_audio_path):
             return {

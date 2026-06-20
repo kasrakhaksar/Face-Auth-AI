@@ -9,17 +9,19 @@ from user_status.models import UserStatus
 from id_card.models import IDCard
 from .utils import FaceRecognizer, FaceDetector
 
+
+
 @shared_task(bind=True)
-def process_face_verification(self, username, photo_data, photo_name):
+def process_face_verification(self, user_id, photo_data, photo_name):
 
     try:
         try:
-            user = User.objects.get(username=username)
+            user = User.objects.get(id=user_id)
         except User.DoesNotExist:
             return {
-                'ok': False,
-                'message': f'User with username "{username}" not found',
-                'status_code': 404
+                "ok":False,
+                "message":"User not found",
+                "status_code":404
             }
         
         try:
