@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'rest_framework',
     "rest_framework_simplejwt.token_blacklist",
     'drf_yasg',
+    'storages',
     'face',
     'video',
     'id_card',
@@ -195,3 +196,27 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
+
+
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
+AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL")
+AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", "us-east-1")
+AWS_S3_USE_SSL = os.getenv("AWS_S3_USE_SSL", "False") == "True"
+AWS_S3_VERIFY = os.getenv("AWS_S3_VERIFY", "True") == "True"
+
+AWS_S3_FILE_OVERWRITE = False
+AWS_DEFAULT_ACL = None
+AWS_QUERYSTRING_AUTH = True
+AWS_S3_ADDRESSING_STYLE = "path"
+AWS_S3_SIGNATURE_VERSION = "s3v4"
+
+STORAGES = {
+    "default": {
+        "BACKEND": "storages.backends.s3.S3Storage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}

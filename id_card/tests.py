@@ -7,6 +7,8 @@ from PIL import Image
 import tempfile
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from user_status.models import VerificationTask
+
 
 def get_test_image():
     image = Image.new("RGB", (100, 100), color="red")
@@ -94,8 +96,14 @@ class IDCardViewSetTests(APITestCase):
         )
 
 
-    @patch("id_card.views.AsyncResult")
+    @patch("AiAuth.mixins.AsyncResult")
     def test_task_status_pending(self, mock_async):
+
+        VerificationTask.objects.create(
+            task_id="fake-id",
+            user=self.user,
+            task_type="id_card"
+        )
 
         mock_obj = MagicMock()
         mock_obj.state = "PENDING"
@@ -111,8 +119,14 @@ class IDCardViewSetTests(APITestCase):
         self.assertIsNone(response.data["ok"])
 
 
-    @patch("id_card.views.AsyncResult")
+    @patch("AiAuth.mixins.AsyncResult")
     def test_task_status_success(self, mock_async):
+
+        VerificationTask.objects.create(
+            task_id="fake-id",
+            user=self.user,
+            task_type="id_card"
+        )
 
         mock_obj = MagicMock()
 
@@ -133,8 +147,14 @@ class IDCardViewSetTests(APITestCase):
         self.assertEqual(response.data["state"], "SUCCESS")
 
 
-    @patch("id_card.views.AsyncResult")
+    @patch("AiAuth.mixins.AsyncResult")
     def test_task_status_failure(self, mock_async):
+
+        VerificationTask.objects.create(
+            task_id="fake-id",
+            user=self.user,
+            task_type="id_card"
+        )
 
         mock_obj = MagicMock()
 
@@ -150,3 +170,23 @@ class IDCardViewSetTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["state"], "FAILURE")
         self.assertFalse(response.data["ok"])
+
+
+    def test_task_status_not_owned(self):
+
+        other_user = User.objects.create_user(
+            username="otheruser",
+            password="123456"
+        )
+
+        VerificationTask.objects.create(
+            task_id="not-mine",
+            user=other_user,
+            task_type="id_card"
+        )
+
+        response = self.client.get(
+            "/api/id_card/not-mine/status/"
+        )
+
+        self.assertEqual(response.status_code, 404)

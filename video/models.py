@@ -30,10 +30,9 @@ class Video(Model):
 
     def __str__(self):
         return f"{self.user.username} - Video"
-    
+
     def delete(self, *args, **kwargs):
         if self.video_field:
-            if os.path.isfile(self.video_field.path):
-                os.remove(self.video_field.path)
-        
+            self.video_field.delete(save=False)
+
         super().delete(*args, **kwargs)

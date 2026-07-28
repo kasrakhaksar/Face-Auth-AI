@@ -5,7 +5,6 @@ import os
 import uuid
 
 
-
 def user_idcard_path(instance, filename):
     username = instance.user.username
     
@@ -16,7 +15,6 @@ def user_idcard_path(instance, filename):
     new_filename = f"idcard_{uuid.uuid4().hex[:10]}{ext}"
     
     return os.path.join(username, new_filename)
-
 
 
 class IDCard(Model):
@@ -37,7 +35,6 @@ class IDCard(Model):
 
     def delete(self, *args, **kwargs):
         if self.photo:
-            if os.path.isfile(self.photo.path):
-                os.remove(self.photo.path)
-        
+            self.photo.delete(save=False)
+
         super().delete(*args, **kwargs)

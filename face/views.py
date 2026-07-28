@@ -5,16 +5,17 @@ from rest_framework.decorators import action
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 
-from celery.result import AsyncResult
-
 from .serializers import FaceSerializer
 from .tasks import process_face_verification
+from user_status.models import VerificationTask
+from AiAuth.mixins import TaskStatusMixin
 
 
-class FaceViewSet(ViewSet):
+class FaceViewSet(TaskStatusMixin, ViewSet):
 
     parser_classes = [MultiPartParser, FormParser]
     permission_classes = [IsAuthenticated]
+    task_type = 'face'
 
     def create(self, request):
         serializer = FaceSerializer(data=request.data)
@@ -40,6 +41,12 @@ class FaceViewSet(ViewSet):
             photo_name
         )
 
+        VerificationTask.objects.create(
+            task_id=task.id,
+            user=user,
+            task_type='face'
+        )
+
         return Response(
             {
                 "ok": True,
@@ -55,36 +62,4 @@ class FaceViewSet(ViewSet):
         url_path="status"
     )
     def get_task_status(self, request, pk=None):
-
-        task_result = AsyncResult(pk)
-
-        if task_result.state == "PENDING":
-            return Response(
-                {
-                    "state": task_result.state,
-                    "status": "Task is pending"
-                }
-            )
-
-        if task_result.state == "FAILURE":
-            return Response(
-                {
-                    "state": task_result.state,
-                    "status": str(task_result.info)
-                }
-            )
-
-        if task_result.state == "SUCCESS":
-            return Response(
-                {
-                    "state": task_result.state,
-                    "result": task_result.result
-                }
-            )
-
-        return Response(
-            {
-                "state": task_result.state,
-                "status": "Processing"
-            }
-        )
+        return self.get_task_status_response(request, pk)
