@@ -4,17 +4,19 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from celery.result import AsyncResult
 from django.conf import settings
 
 from .serializers import VideoSerializer
 from .tasks import process_video_verification
+from user_status.models import VerificationTask
+from AiAuth.mixins import TaskStatusMixin
 
 
-class VideoViewSet(ViewSet):
+class VideoViewSet(TaskStatusMixin, ViewSet):
 
     parser_classes = [MultiPartParser, FormParser]
     permission_classes = [IsAuthenticated]
+    task_type = 'video'
 
     def create(self, request):
         serializer = VideoSerializer(data=request.data)
@@ -64,6 +66,12 @@ class VideoViewSet(ViewSet):
             video_name
         )
 
+        VerificationTask.objects.create(
+            task_id=task.id,
+            user=user,
+            task_type='video'
+        )
+
         return Response(
             {
                 "ok": True,
@@ -79,43 +87,4 @@ class VideoViewSet(ViewSet):
         url_path="status"
     )
     def get_task_status(self, request, pk=None):
-
-        task_result = AsyncResult(pk)
-
-        if task_result.state == "PENDING":
-            return Response(
-                {
-                    "state": "PENDING",
-                    "status": "Task is pending",
-                    "ok": None
-                }
-            )
-
-        if task_result.state == "FAILURE":
-            return Response(
-                {
-                    "state": "FAILURE",
-                    "status": str(task_result.info),
-                    "ok": False
-                }
-            )
-
-        if task_result.state == "SUCCESS":
-            return Response(
-                {
-                    "state": "SUCCESS",
-                    "result": task_result.result,
-                    "ok": task_result.result.get(
-                        "ok",
-                        False
-                    )
-                }
-            )
-
-        return Response(
-            {
-                "state": task_result.state,
-                "status": "Processing",
-                "ok": None
-            }
-        )
+        return self.get_task_status_response(request, pk)

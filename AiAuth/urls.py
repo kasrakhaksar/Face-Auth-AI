@@ -17,7 +17,7 @@ from user_status.views import UserStatusViewSet
 
 schema_view = get_schema_view(
     openapi.Info(
-        title="Authentication API",
+        title="FaceAuthAI API",
         default_version='v1',
         description="API documentation for the face authentication ai",
     ),

@@ -32,10 +32,9 @@ class Face(Model):
 
     def __str__(self):
         return f"{self.user.username} - Face"
-    
+
     def delete(self, *args, **kwargs):
         if self.photo:
-            if os.path.isfile(self.photo.path):
-                os.remove(self.photo.path)
-        
+            self.photo.delete(save=False)
+
         super().delete(*args, **kwargs)

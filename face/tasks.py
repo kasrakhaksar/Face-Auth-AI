@@ -46,6 +46,7 @@ def process_face_verification(self, user_id, photo_data, photo_name):
             }
         
         temp_path = None
+        id_card_temp_path = None
         try:
             with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(photo_name)[1]) as temp_file:
                 temp_file.write(photo_data)
@@ -60,8 +61,15 @@ def process_face_verification(self, user_id, photo_data, photo_name):
                     'message': 'No face found in the uploaded image',
                     'status_code': 400
                 }
-            
-            id_card_face = fr.load_image_file(id_card.photo.path)
+
+            id_card_ext = os.path.splitext(id_card.photo.name)[1]
+            with tempfile.NamedTemporaryFile(delete=False, suffix=id_card_ext) as id_card_temp_file:
+                id_card.photo.open('rb')
+                id_card_temp_file.write(id_card.photo.read())
+                id_card.photo.close()
+                id_card_temp_path = id_card_temp_file.name
+
+            id_card_face = fr.load_image_file(id_card_temp_path)
             id_card_encodings = fr.face_encodings(id_card_face)
             
             if not id_card_encodings:
@@ -113,6 +121,8 @@ def process_face_verification(self, user_id, photo_data, photo_name):
         finally:
             if temp_path and os.path.exists(temp_path):
                 os.unlink(temp_path)
+            if id_card_temp_path and os.path.exists(id_card_temp_path):
+                os.unlink(id_card_temp_path)
                 
     except Exception as e:
         return {
