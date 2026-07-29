@@ -16,6 +16,12 @@ class FaceViewSet(TaskStatusMixin, ViewSet):
     parser_classes = [MultiPartParser, FormParser]
     permission_classes = [IsAuthenticated]
     task_type = 'face'
+    throttle_scope = 'face_upload'
+
+    def get_throttles(self):
+        if self.action == 'create':
+            return super().get_throttles()
+        return []
 
     def create(self, request):
         serializer = FaceSerializer(data=request.data)

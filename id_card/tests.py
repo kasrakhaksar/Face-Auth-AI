@@ -1,6 +1,7 @@
 from rest_framework.test import APITestCase
 from rest_framework import status
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from unittest.mock import patch, MagicMock
 from PIL import Image
@@ -29,6 +30,7 @@ def get_test_image():
 class IDCardViewSetTests(APITestCase):
 
     def setUp(self):
+        cache.clear()
         self.user = User.objects.create_user(
             username="testuser",
             password="123456"

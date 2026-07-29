@@ -13,10 +13,16 @@ from AiAuth.mixins import TaskStatusMixin
 
 
 class IDCardViewSet(TaskStatusMixin, ViewSet):
-    parser_classes = [MultiPartParser, FormParser]
 
+    parser_classes = [MultiPartParser, FormParser]
     permission_classes = [IsAuthenticated]
     task_type = 'id_card'
+    throttle_scope = 'id_card_upload'
+
+    def get_throttles(self):
+        if self.action == 'create':
+            return super().get_throttles()
+        return []
 
     def create(self, request):
 

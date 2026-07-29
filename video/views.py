@@ -17,6 +17,12 @@ class VideoViewSet(TaskStatusMixin, ViewSet):
     parser_classes = [MultiPartParser, FormParser]
     permission_classes = [IsAuthenticated]
     task_type = 'video'
+    throttle_scope = 'video_upload'
+
+    def get_throttles(self):
+        if self.action == 'create':
+            return super().get_throttles()
+        return []
 
     def create(self, request):
         serializer = VideoSerializer(data=request.data)

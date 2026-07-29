@@ -139,6 +139,14 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    'DEFAULT_THROTTLE_CLASSES': (
+        'rest_framework.throttling.ScopedRateThrottle',
+    ),
+    'DEFAULT_THROTTLE_RATES': {
+        'face_upload': '5/hour',
+        'id_card_upload': '5/hour',
+        'video_upload': '5/hour',
+    },
 }
 
 
