@@ -1,5 +1,5 @@
 from rest_framework.test import APITestCase
-from rest_framework import status
+from django.core.cache import cache
 from django.contrib.auth.models import User
 from unittest.mock import patch, MagicMock
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -23,6 +23,7 @@ def get_test_video():
 class VideoViewSetTests(APITestCase):
 
     def setUp(self):
+        cache.clear()
         self.user = User.objects.create_user(
             username="testuser",
             password="123456"
